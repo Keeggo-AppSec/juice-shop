@@ -44,22 +44,22 @@ jobs:
           distribution: 'temurin'
 
         # Fortify Setup
-      - name: Install Debricked and FCLI
-        uses: fortify/github-action/setup@v1
-        with:
-          tool-definitions: https://github.com/fortify/tool-definitions/releases/download/v1/tool-definitions.yaml.zip
-          export-path: true
-          fcli: latest
-          sc-client: 23.2
-          fod-uploader: skip
-          vuln-exporter: skip
-          bugtracker-utility: skip
-          debricked-cli: skip
+      #- name: Install Debricked and FCLI
+      #  uses: fortify/github-action/setup@v1
+      #  with:
+      #    tool-definitions: https://github.com/fortify/tool-definitions/releases/download/v1/tool-definitions.yaml.zip
+      #    export-path: true
+      #    fcli: latest
+      #    sc-client: 23.2
+      #    fod-uploader: skip
+      #    vuln-exporter: skip
+      #    bugtracker-utility: skip
+      #    debricked-cli: skip
 
-      - name: Utilitários Instalados
-        run: |
-          java -version
-          fcli -V
+      #- name: Utilitários Instalados
+      #  run: |
+      #    java -version
+      #    fcli -V
 
       # Perform Fortify SAST scan and import SAST results into GitHub code scanning alerts
       #- name: SAST Scan (Fortify)
@@ -97,7 +97,7 @@ jobs:
       - uses: AppThreat/cdxgen-action@v1
         with:
           output: "./reports/bom.xml"
-          serverUrl: "https://fortify-demo-lab-utils.keeggo.com"
+          serverUrl: 'https://fortify-demo-lab-utils.keeggo.com'
           apiKey: ${{ secrets.OWASP_DT_APIKEY }}
       #- uses: DependencyTrack/gh-upload-sbom@v3.0.0
       #  with:
@@ -113,10 +113,10 @@ jobs:
       #- name: Importa os Resultados Debricked no SSC  
       #  run: fcli ssc artifact import-debricked -t ${{ secrets.DEBRICKED_TOKEN }} --av=${{ env.App-Version  }} -r=${{ env.App-Version  }} --branch=$GITHUB_REF_NAME
     
-      - name: Espera Scan Fortify Acabar  
-        run: |
-          fcli sc-sast scan wait-for --any-ssc-state PROCESS_COMPLETE --timeout 2h ::job::jobToken
-          fcli ssc issue list --appversion='Juice-Shop:17.1.1'
+      #- name: Espera Scan Fortify Acabar  
+      #  run: |
+      #    fcli sc-sast scan wait-for --any-ssc-state PROCESS_COMPLETE --timeout 2h ::job::jobToken
+      #    fcli ssc issue list --appversion='Juice-Shop:17.1.1'
 
       #- name: Consulta ID do Ultimo Artefacto
       #  run: fcli ssc artifact list --appversion ${{ env.App-Version  }} --query "['scanTypes'].contains('SCA')" --output 'expr={id}\n' > out.txt
