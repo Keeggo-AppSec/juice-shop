@@ -1,0 +1,145 @@
+################################################################################################################################################
+#                                                                                                                                              #
+# Template de Github Actions: Stack de Segurança de Aplicações com Remediação Automatizada                                                     #
+# Autoria:                                                                                                                                     #
+# Emerson Xavier - emerson.xavier@keeggo.com                                                                                                   #
+# Michel Santana - michel.santana@keeggo.com                                                                                                   #
+#                                                                                                                                              #
+# Stack de Ferramentas de App Sec:                                                                                                             #
+# - SonarQube               Análise de Qualidade do Código                                                                                     #
+# - OWASP Dependency Track  Análise de Componentes de Terceiros                                                                                #
+# - OpenText Debricked:     Software Composition Analysis                                                                                      #
+# - OpenText Fortify:       Static Analysis Security Testing                                                                                   #
+# - Mobb Fixer:             AI Security Code Assistant                                                                                         #
+#                                                                                                                                              #
+################################################################################################################################################
+
+name: Dependency Track + Fortify + Mobb
+
+# Gatilho de Disparo
+on:
+  workflow_dispatch:
+
+# Steps
+jobs:
+  AppSec-Stack:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    env:
+      App-Version: 'Juice-Shop:17.1.1'
+
+    steps:
+      # Check out source code
+      - name: Check Out Source Code
+        uses: actions/checkout@v4
+        
+      # Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: 'temurin'
+
+        # Fortify Setup
+      - name: Install Debricked and FCLI
+        uses: fortify/github-action/setup@v1
+        with:
+          tool-definitions: https://github.com/fortify/tool-definitions/releases/download/v1/tool-definitions.yaml.zip
+          export-path: true
+          fcli: latest
+          sc-client: 24.1
+          fod-uploader: skip
+          vuln-exporter: skip
+          bugtracker-utility: skip
+          debricked-cli: skip
+
+      - name: Utilitários Instalados
+        run: |
+          java -version
+          fcli -V
+
+      # Perform Fortify SAST scan and import SAST results into GitHub code scanning alerts
+      - name: SAST Scan (Fortify)
+        run: |
+          fcli ssc session login --url=${{ secrets.SSC_URL }} --ci-token=${{ secrets.SSC_TOKEN }}
+          fcli sc-sast session login --client-auth-token=${{ secrets.CLIENT_AUTH_TOKEN }} --ssc-url=${{ secrets.SSC_URL }} --ssc-ci-token=${{ secrets.SSC_TOKEN }}
+          fcli ssc appversion create --skip-if-exists='Juice-Shop:17.1.1' --auto-required-attrs --issue-template=Prioritized-HighRisk-Project-Template
+          scancentral package --output APP.zip
+          fcli sc-sast scan start --package-file=APP.zip --sensor-version=24.2 --publish-to=${{ env.App-Version  }} --ssc-ci-token=${{ secrets.SSC_TOKEN }} --store=job:jobToken
+         
+      # Sonarqube
+      #- name: Cache SonarQube packages
+      #  uses: actions/cache@v1
+      #  with:
+      #    path: ~/.sonar/cache
+      #    key: ${{ runner.os }}-sonar
+      #    restore-keys: ${{ runner.os }}-sonar
+          
+       # Mvn    
+      #- name: Cache Maven packages
+      #  uses: actions/cache@v1
+      #  with:
+      #    path: ~/.m2
+      #    key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+      #    restore-keys: ${{ runner.os }}-m2
+          
+       # Build   
+      #- name: Build and analyze
+      #  env:
+      #    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #    SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      #  run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=IWA-Java -Dsonar.projectName='IWA-Java'
+      
+        # Dependency Track - Upload SBOM
+      - uses: AppThreat/cdxgen-action@v1
+        with:
+          output: "./reports/bom.xml"
+          serverUrl: "https://fortify-demo-lab-utils.keeggo.com"
+          apiKey: ${{ secrets.OWASP_DT_APIKEY }}
+      #- uses: DependencyTrack/gh-upload-sbom@v3.0.0
+      #  with:
+      #    serverHostname: 'fortify-demo-lab-utils.keeggo.com'
+      #    apiKey: ${{ secrets.DEPENDENCYTRACK_APIKEY }}
+      #    projectName: 'IWA'
+      #    projectVersion: 'java'
+      #    bomFilename: "./target/bom.xml"
+      #   autoCreate: true
+
+      #- name: Debricked Scan
+      #  run: debricked scan -t ${{ secrets.DEBRICKED_TOKEN }} -r=${{ env.App-Version  }} --commit=${{ env.GITHUB_RUN_ID }}
+      #- name: Importa os Resultados Debricked no SSC  
+      #  run: fcli ssc artifact import-debricked -t ${{ secrets.DEBRICKED_TOKEN }} --av=${{ env.App-Version  }} -r=${{ env.App-Version  }} --branch=$GITHUB_REF_NAME
+    
+      - name: Espera Scan Fortify Acabar  
+        run: |
+          fcli sc-sast scan wait-for --any-ssc-state PROCESS_COMPLETE --timeout 2h ::job::jobToken
+          fcli ssc issue list --appversion='Juice-Shop:17.1.1'
+
+      #- name: Consulta ID do Ultimo Artefacto
+      #  run: fcli ssc artifact list --appversion ${{ env.App-Version  }} --query "['scanTypes'].contains('SCA')" --output 'expr={id}\n' > out.txt
+      #- name: Recuperação do Ultimo Artefacto Scaneado
+      #  run: fcli ssc artifact download "$(head -1 out.txt)" -f='app.fpr'
+        
+      # Para Demo
+      #- name: Recuperação do Ultimo Artefacto Scaneado
+      #  run: fcli ssc appversion download-state --include-sources --file=app.fpr ${{ env.App-Version  }}
+        
+      #- name: Arquivar FPR
+      #  if: always()
+      #  uses: actions/upload-artifact@v3
+      #  with:
+      #    name: fpr
+      #    path: app.fpr
+        
+      # Mobb Fixer
+      #- name: Run Mobb on the findings and get fixes
+      #  if: always()
+      #  uses: mobb-dev/action@v1
+      #  with:
+      #    report-file: "app.fpr"
+      #    api-key: ${{ secrets.MOBB_API_TOKEN }}
+      #    github-token: ${{ secrets.GITHUB_TOKEN }}
+      #    # scanner: fortify
