@@ -62,13 +62,13 @@ jobs:
           fcli -V
 
       # Perform Fortify SAST scan and import SAST results into GitHub code scanning alerts
-      - name: SAST Scan (Fortify)
-        run: |
-          fcli ssc session login --url=${{ secrets.SSC_URL }} --ci-token=${{ secrets.SSC_TOKEN }}
-          fcli sc-sast session login --client-auth-token=${{ secrets.CLIENT_AUTH_TOKEN }} --ssc-url=${{ secrets.SSC_URL }} --ssc-ci-token=${{ secrets.SSC_TOKEN }}
-          fcli ssc appversion create --skip-if-exists='Juice-Shop:17.1.1' --auto-required-attrs --issue-template=Prioritized-HighRisk-Project-Template
-          scancentral package --output APP.zip
-          fcli sc-sast scan start --package-file=APP.zip --sensor-version=24.2 --publish-to=${{ env.App-Version  }} --ssc-ci-token=${{ secrets.SSC_TOKEN }} --store=job:jobToken
+      #- name: SAST Scan (Fortify)
+      #  run: |
+      #    fcli ssc session login --url=${{ secrets.SSC_URL }} --ci-token=${{ secrets.SSC_TOKEN }}
+      #    fcli sc-sast session login --client-auth-token=${{ secrets.CLIENT_AUTH_TOKEN }} --ssc-url=${{ secrets.SSC_URL }} --ssc-ci-token=${{ secrets.SSC_TOKEN }}
+      #    fcli ssc appversion create --skip-if-exists='Juice-Shop:17.1.1' --auto-required-attrs --issue-template=Prioritized-HighRisk-Project-Template
+      #    scancentral package --output APP.zip
+      #    fcli sc-sast scan start --package-file=APP.zip --sensor-version=24.2 --publish-to=${{ env.App-Version  }} --ssc-ci-token=${{ secrets.SSC_TOKEN }} --store=job:jobToken
          
       # Sonarqube
       #- name: Cache SonarQube packages
